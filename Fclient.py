@@ -5,36 +5,48 @@ import socket
 
 ip, port = "127.0.0.1", 5002
 
-def setNickname(connection):
-    username = input("select your username:")
-    connection.send(bytes("1" + username, 'ascii'))
+def login(connection):
+    username = input("username: ")
+    password = input("password: ")
+    connection.send(bytes("1" + username + ";" + password, 'ascii'))
     response = str(connection.recv(1024), 'ascii')
     print("response from server:", response)
     if(response == "usernametaken"):
         print("username taken, select another one")
-        return setNickname(connection)
+        return login(connection)
+    if(response == "usernamenotfound"):
+        answer = input("User doesn't exist, do you want to register? (Yes/No)")
+        if(answer[0].lower() == "y"):
+            return register(connection, username, password)
+        else:
+            return login(connection)
     return username
+
+def register(connection, username: str, password: str):
+    connection.send(bytes("2" + username + ";" + password, 'ascii'))
+    response = str(connection.recv(1024), 'ascii')
+    print("response from server:", response)
 
 def sendMessageToAll(connection, username):
     message = input("input message: ")
-    connection.send(bytes("2" + username + ": " + message , 'ascii'))
+    connection.send(bytes("3" + username + ": " + message , 'ascii'))
     response = str(connection.recv(1024), 'ascii')
     print("response from server:", response)
 
 def sendPrivateMessage(connection, username):
     message = input("input message: ")
     to = input("input receiver's nickname: ")
-    connection.send(bytes("3"+ to + "\n" + username + ": " + message, 'ascii'))
+    connection.send(bytes("4"+ to + "\n" + username + ": " + message, 'ascii'))
     response = str(connection.recv(1024), 'ascii')
     print("response from server:", response)
 
 def readMessages(connection, username):
-    connection.send(bytes("4" + username, 'ascii'))
+    connection.send(bytes("5" + username, 'ascii'))
     response = str(connection.recv(1024), 'ascii')
     print("response from server:", response)
 
 def disconnect(connection):
-    connection.send(bytes("5" + username, 'ascii'))
+    connection.send(bytes("6" + username, 'ascii'))
     connection.close()
 
 def connect():
@@ -52,7 +64,7 @@ def client(ip, port, message): # example from documentation
 
 if __name__ == "__main__":
     connection = connect()
-    username = setNickname(connection)
+    username = login(connection)
     while True:
         userInput = input("1: send global message, 2: send private message, 3: disconnect:\n")
         print()

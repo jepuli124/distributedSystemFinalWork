@@ -85,7 +85,7 @@ def add_wikipedia_article(proxy, wiki_number, data, userInput: userInputObject):
     date = datetime.datetime.now()
 
     try: # error handling from https://docs.python.org/3/library/xmlrpc.client.html#module-xmlrpc.client
-        proxy.add_article_to_topic(userInput.topic, data[3][wiki_number], date)
+        proxy.add_article_to_topic(userInput.topic, data[3][wiki_number-1], date)
     except xmlrpc.client.Fault as err:
         print("A fault occurred")
         print("Fault code: %d" % err.faultCode)
@@ -157,5 +157,3 @@ def main():
 if __name__ == "__main__":
    main()
 # main loop
-
-
