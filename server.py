@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import threading
 import requests
 
+import message_coder
 
 threadlock_xml = threading.Lock()
 # template and some marked of code from documentation https://docs.python.org/3.9/library/socketserver.html#module-socketserver
@@ -233,21 +234,6 @@ def write_xml_topic(topic, note, text, datetime): #old code
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
-    
-    def usernamePasswordParser(self, data):
-        name = ""
-        password = ""
-        index = 1
-        for x, letter in enumerate(data[1::]):
-            if letter == ';':
-                index = x + 2
-                break
-            name += letter
-        for letter in data[index::]:
-            if letter == ';':
-                break
-            password += letter
-        return name, password
 
     def userExists(self, name: str, password: str) -> bool:
         found = False
@@ -256,23 +242,33 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 found = True
                 break
         return found
+    
+    def form_response(self, message0 = "", message1 = ""):
+        return bytes(message_coder.encode(message0, message1), 'ascii')
      
     def handle(self):
         run = True
         while run:
             data = str(self.request.recv(1024), 'ascii')
 
-            name, password = self.usernamePasswordParser(data)
+            parsedData = message_coder.decode(data) # ideally index 0 is username, 1 is password, 2 is action, and rest is action specific.
+            try:
+                name = parsedData[0]
+                password = parsedData[1]
+                action = parsedData[2]
+                other = []
+                if(len(parsedData) >= 3):
+                    other = parsedData[3::]
+            except IndexError:
+                print("invalid message arrived,\ndata:", data, "\nparcedData:", parsedData)
             userAuth = self.userExists(name, password)
             
                 
-            if(data[0] == "T"): # test from documentation
+            if(action == "test"): # test from documentation
                 cur_thread = threading.current_thread()
-                response = bytes("{}: {}".format(cur_thread.name, data), 'ascii').upper()
+                response = self.form_response("ok", "{}: {}".format(cur_thread.name, data).upper())
             
-            elif(data[0] == "1"): # login
-                
-
+            elif(action == "login"): # login
                 found = False
                 for a_user in listOfActiveUsers:
                     if(a_user.username == name):
@@ -281,21 +277,24 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         break
                 if not found:
                     listOfActiveUsers.append(user(name, password))
-                response = bytes("Welcome to the wizard's lair: " + name, 'ascii')
-            elif(data[0] == "2"): # register
+                response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name)
+
+            elif(action == "register"): # register
                 if(name in listOfUsers):
-                    response = bytes("usernametaken", 'ascii')
+                    response = self.form_response("usernametaken", "Username is already taken")
                 else:
                     listOfUsers.append(user(name, password))
                     listOfActiveUsers.append(user(name, password))
-                    response = bytes("ok: " + name + " " + password, 'ascii')
-            elif(userAuth): # security is our passion.
+                    response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name + " " + password)
 
-                if(data[0] == "3"): # send message global
+            elif(userAuth): # security is our passion. Only logged in users can access these actions.
+
+                if(action == "send_global"): # send message global
                     for a_user in listOfUsers:
                         a_user.messages.append(data[1::]) 
-                    response = bytes("ok: " + data[1::], 'ascii')
-                elif(data[0] == "4"): # send message private
+                    response = self.form_response("ok", "Message send")
+
+                elif(action == "send_private"): # send message private, other 0 = to, 1 = message
                     to = ""
                     index = 1
                     for x, letter in enumerate(data[1::]):
@@ -307,24 +306,24 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         if a_user.username == to:
                             a_user.messages.append(data[index::]) 
                             break
-                    response = bytes("ok: " + data[1::], 'ascii')
-                elif(data[0] == "5"): # read messages
+                    response = self.form_response("ok", "Message send to " + other[0])
+                elif(action == "read"): # read messages
                     for a_user in listOfUsers:
                         if (a_user.username == data[1::]):
-                            response = bytes(str(a_user.messages), 'ascii')
+                            response = self.form_response("ok", )
                             break
                         else:
-                            response = bytes("Server error: " + data, 'ascii')
-                elif(data[0] == "6"): # disconnect
+                            response = self.form_response("usernotfound",)
+                elif(action == "disconnect"): # disconnect
                     for a_user in listOfUsers:
                         if (a_user.username == name):
                             listOfActiveUsers.remove(a_user)
                     break
                 else:
-                    response = bytes("Server error: " + data, 'ascii')
+                    response = self.form_response("invalidaction", "Invalid action, problem in client software and server mail wizard")
             else:
-                response = bytes("Server error: " + data, 'ascii')
-            self.request.sendall(response)
+                response = self.form_response("autherror", "Wizard is not authorizised corretly, login again")
+            self.request.sendall(response) # response should be that 0 index has mechanical message and 1 index user readable message.
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
@@ -419,7 +418,7 @@ def main():
         
         input("press enter to exit\n")
 
-listOfUsers = []
-listOfActiveUsers = []
+listOfUsers = [] #store whole user from xml to memory
+listOfActiveUsers = [] #store only username
 if __name__ == "__main__":
     main()
