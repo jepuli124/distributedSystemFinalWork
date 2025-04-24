@@ -33,10 +33,8 @@ class client:
     def send_to_server(self, *message) -> str:
         message_tuple = (self.username, self.password) + message # this is done due to package all of the properly for encoding.
         self.connection.send(bytes(message_coder.encode(message_tuple), 'ascii'))
-        response = message_coder.decode(str(self.connection.recv(1024), 'ascii'))
-        if(response[0] != "ok"):
-            print("Error:", response[1])
-        return response
+        return message_coder.decode(str(self.connection.recv(1024), 'ascii'))
+        
 
     def select_new_username_and_password(self):
         self.username = input("username: ")
@@ -45,7 +43,6 @@ class client:
     def login(self):
         self.select_new_username_and_password()
         response = self.send_to_server("login")
-        print("response from server:", response[1])
         if(response[0] == "usernametaken"):
             print("username taken, select another one")
             return self.login()
@@ -55,6 +52,11 @@ class client:
                 return self.register()
             else:
                 return self.login()
+        if(response[0] != "ok"):
+            print("something went wrong, retry")
+            return self.login()
+        else:
+            print("login successful: ", response[1])
 
     def register(self):
         response = self.send_to_server("register")
@@ -111,8 +113,8 @@ class client:
         self.connection.close()
 
     def connect(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connection = sock.connect((self.ip, self.port))
+        self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connection.connect((self.ip, self.port))
 
 if __name__ == "__main__":
     cl = client("127.0.0.1", 5002)
@@ -120,6 +122,7 @@ if __name__ == "__main__":
     cl.intro()
     cl.login()
     while True:
+        print("logged as:", cl.username)
         userInput = input("MG: send global message, MP: send private message, ME: send message to event, JE: join to event, D: disconnect, A: attack wizard that's online: \n")
         print()
         if(userInput == "MG"):

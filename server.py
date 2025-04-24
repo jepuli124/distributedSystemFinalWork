@@ -18,7 +18,6 @@ class user:
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
-        self.lastLogin = datetime.datetime.now()
 
 # universal server functions
 
@@ -32,6 +31,14 @@ def create_xml_file():
     except FileExistsError:
         print("XML file already exists")
         return None
+    
+def save_users():
+    global threadlock_xml, listOfUsers
+    pass
+
+def load_users():
+    global threadlock_xml, listOfUsers
+    pass
 
 def write_user_data(username, password): # handles adding user to data base. 
     global threadlock_xml
@@ -161,20 +168,15 @@ def attack_wizard(attacker, defender):
     log_node.append(attack_node)
 
     if(log_node.__len__ >= 5): # user "dies"
-        print(defender, "died")
         users_node.remove(user_node)
-        for x, user in enumerate(listOfUsers):
-            if user.username == defender:
-                listOfUsers.pop(x)
-                break
-        for x, user in enumerate(listOfActiveUsers):
-            if user.username == defender:
-                listOfActiveUsers.pop(x)
-                break
+        
     
     tree.write('./xmlData.xml')
     threadlock_xml.release()
-    return True
+    if(log_node.__len__ >= 5): # this is here to update the dynamic memory and correctly return a value
+        return "dead"
+    else:
+        return True
 
 
 
@@ -234,23 +236,31 @@ def write_xml_topic(topic, note, text, datetime): #old code
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
-
+    listOfUsers = [] #store whole user from xml to memory
+    listOfActiveUsers = [] #store only username
     def userExists(self, name: str, password: str) -> bool:
         found = False
-        for a_user in listOfUsers:
+        nameExist = False
+        for a_user in self.listOfUsers:
             if(a_user.username == name and a_user.password == password):
                 found = True
+                nameExist = True
                 break
-        return found
+            elif(a_user.username == name and a_user.password != password):
+                nameExist = True
+                break
+        return found, nameExist
     
-    def form_response(self, message0 = "", message1 = ""):
+    def form_response(self, message0 = "MessageError", message1 = ""): #message 0 is meant for mechanical messages, message 1 is for user. Message 1 is not always needed.
         return bytes(message_coder.encode(message0, message1), 'ascii')
      
     def handle(self):
+        
         run = True
         while run:
             data = str(self.request.recv(1024), 'ascii')
-
+            if(len(data) == 0):
+                continue
             parsedData = message_coder.decode(data) # ideally index 0 is username, 1 is password, 2 is action, and rest is action specific.
             try:
                 name = parsedData[0]
@@ -261,7 +271,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     other = parsedData[3::]
             except IndexError:
                 print("invalid message arrived,\ndata:", data, "\nparcedData:", parsedData)
-            userAuth = self.userExists(name, password)
+                continue
+            userAuth, nameExists = self.userExists(name, password)
             
                 
             if(action == "test"): # test from documentation
@@ -269,55 +280,50 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 response = self.form_response("ok", "{}: {}".format(cur_thread.name, data).upper())
             
             elif(action == "login"): # login
-                found = False
-                for a_user in listOfActiveUsers:
-                    if(a_user.username == name):
-                        a_user.lastLogin = datetime.datetime.now()
-                        found = True
-                        break
-                if not found:
-                    listOfActiveUsers.append(user(name, password))
-                response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name)
+                if(not userAuth):
+                    if(nameExists):
+                        response = self.form_response("autherror", "Incorrect password")
+                    else:
+                        response = self.form_response("usernamenotfound", "Incorrect username")  
+                else:
+                    if(name not in self.listOfActiveUsers):
+                        self.listOfActiveUsers.append(name)
+                    response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name)
 
             elif(action == "register"): # register
-                if(name in listOfUsers):
+                if(nameExists):
                     response = self.form_response("usernametaken", "Username is already taken")
                 else:
-                    listOfUsers.append(user(name, password))
-                    listOfActiveUsers.append(user(name, password))
+                    self.listOfUsers.append(user(name, password))
+                    self.listOfActiveUsers.append(name)
                     response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name + " " + password)
 
             elif(userAuth): # security is our passion. Only logged in users can access these actions.
 
                 if(action == "send_global"): # send message global
-                    for a_user in listOfUsers:
-                        a_user.messages.append(data[1::]) 
+                    
                     response = self.form_response("ok", "Message send")
 
                 elif(action == "send_private"): # send message private, other 0 = to, 1 = message
-                    to = ""
-                    index = 1
-                    for x, letter in enumerate(data[1::]):
-                        if letter == '\n':
-                            index = x + 2
-                            break
-                        to += letter
-                    for a_user in listOfUsers:
-                        if a_user.username == to:
-                            a_user.messages.append(data[index::]) 
-                            break
+                    
                     response = self.form_response("ok", "Message send to " + other[0])
                 elif(action == "read"): # read messages
-                    for a_user in listOfUsers:
-                        if (a_user.username == data[1::]):
-                            response = self.form_response("ok", )
-                            break
-                        else:
-                            response = self.form_response("usernotfound",)
+
+                     response = self.form_response("ok", )
+                elif(action == "send_event"): # 
+                    pass
+                elif(action == "cur_online"): # 
+                    pass
+                elif(action == "cur_events"): # 
+                    pass
+                elif(action == "join_event"): # 
+                    pass
+                elif(action == "attack"): # 
+                    pass
                 elif(action == "disconnect"): # disconnect
-                    for a_user in listOfUsers:
-                        if (a_user.username == name):
-                            listOfActiveUsers.remove(a_user)
+                    for a_user in self.listOfActiveUsers:
+                        if (a_user == name):
+                            self.listOfActiveUsers.remove(a_user)
                     break
                 else:
                     response = self.form_response("invalidaction", "Invalid action, problem in client software and server mail wizard")
@@ -325,7 +331,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 response = self.form_response("autherror", "Wizard is not authorizised corretly, login again")
             self.request.sendall(response) # response should be that 0 index has mechanical message and 1 index user readable message.
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer): # something from documentation, needs to be.
     pass
 
 # Rest section
@@ -418,7 +424,6 @@ def main():
         
         input("press enter to exit\n")
 
-listOfUsers = [] #store whole user from xml to memory
-listOfActiveUsers = [] #store only username
+
 if __name__ == "__main__":
     main()
