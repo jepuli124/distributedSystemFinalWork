@@ -32,9 +32,11 @@ class client:
 
     def send_to_server(self, *message) -> str:
         message_tuple = (self.username, self.password) + message # this is done due to package all of the properly for encoding.
-        self.connection.send(bytes(message_coder.encode(message_tuple), 'ascii'))
-        return message_coder.decode(str(self.connection.recv(1024), 'ascii'))
-        
+        try:
+            self.connection.send(bytes(message_coder.encode(message_tuple), 'ascii'))
+            return message_coder.decode(str(self.connection.recv(1024), 'ascii'))
+        except:
+            return ["messagefailure", "connection to server failed"]
 
     def select_new_username_and_password(self):
         self.username = input("username: ")
@@ -95,6 +97,11 @@ class client:
         response = self.send_to_server("attack", to)
         print("response from server:", response[1])
 
+    def addEvent(self):
+        message = input("input event name: ")
+        response = self.send_to_server("add_event", message)
+        print("response from server:", response[1])
+
     def joinEvent(self):
         response = self.send_to_server("cur_events")
         print("Current events: ", response[1])
@@ -104,9 +111,11 @@ class client:
         response = self.send_to_server("join_event", to)
         print("response from server:", response[1])
 
-    def readMessages(self):
+    def readMessages(self): # here response contains more as actual messages are coming through.
         response = self.send_to_server("read")
-        print("response from server:", response[1])
+        print("response from server:", )
+        for message in response[1::]:
+            print(message)
 
     def disconnect(self):
         self.send_to_server("disconnect")
@@ -116,30 +125,40 @@ class client:
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connection.connect((self.ip, self.port))
 
-if __name__ == "__main__":
+def main():
     cl = client("127.0.0.1", 5002)
     cl.connect()
     cl.intro()
     cl.login()
     while True:
         print("logged as:", cl.username)
-        userInput = input("MG: send global message, MP: send private message, ME: send message to event, JE: join to event, D: disconnect, A: attack wizard that's online: \n")
+        userInput = input("MG: send global message, MP: send private message, ME: send message to event, JE: join to event, AE: add event, D: disconnect, A: attack wizard that's online, R: read messages, L: logout: \n")
         print()
-        if(userInput == "MG"):
+        if(userInput.upper() == "MG"):
             cl.sendMessageToAll()
-        elif(userInput == "MP"):
+        elif(userInput.upper() == "MP"):
             cl.sendPrivateMessage()
-        elif(userInput == "ME"):
+        elif(userInput.upper() == "ME"):
             cl.sendMessageToEvent()
-        elif(userInput == "JE"):
+        elif(userInput.upper() == "JE"):
             cl.joinEvent()
-        elif(userInput == "D"):
+        elif(userInput.upper() == "AE"):
+            cl.addEvent()
+        elif(userInput.upper() == "D"):
             cl.disconnect()
             break
-        elif(userInput == "A"):
+        elif(userInput.upper() == "A"):
             cl.attackAnotherWizard()
+        elif(userInput.upper() == "R"):
+            cl.readMessages()
+        elif(userInput.upper() == "L"):
+            cl.disconnect()
+            return main()
         else:
-            print("\nNo action was done (invalid input) -> reading messages: \n")
-        cl.readMessages()
+            print("\nNo action was done (invalid input) \n")
+        
         print()
     cl.bye()
+
+if __name__ == "__main__":
+    main()

@@ -5,7 +5,7 @@ def encode(*data: str) -> str:
         data = data[0]
 
     for text in data:
-        encodedData += text + ";"
+        encodedData += str(text) + ";"
 
     return encodedData
 
