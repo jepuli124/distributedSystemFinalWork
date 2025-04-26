@@ -10,11 +10,13 @@ import requests
 
 import message_coder
 
+# code (programming) is a beautiful form of commands to modern rocks (cpu:s) and we here at wizard's closet treat it as such with atmost respect.
+
 threadlock_xml = threading.Lock()
-# template and some marked of code from documentation https://docs.python.org/3.9/library/socketserver.html#module-socketserver
+# some marked of code from documentation https://docs.python.org/3.9/library/socketserver.html#module-socketserver
 
 #user class
-class user:
+class user: # simple class to store data
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
@@ -22,22 +24,21 @@ class user:
 # universal server functions
 
 
-def create_xml_file():
+def create_xml_file(): # in case of xml file doesn't exist.
     try:
         baseText = ET.Element("data")
         baseTree = ET.ElementTree(element=baseText)
         baseTree.write("./xmlData.xml")
         return ET.parse('./xmlData.xml')
-    except FileExistsError:
+    except FileExistsError: 
         print("XML file already exists")
         return None
     
-def save_users(list_of_users):
+def save_users(list_of_users): # save users from RAM memory to xml file  
     global threadlock_xml
     
-
     user_nodes = []
-    for a_user in list_of_users:
+    for a_user in list_of_users: # create necessary elements before acquiring threadlock to reduce unnecessary threadlock keep time.
         temp_user = ET.Element("user")
         temp_user.text = a_user.username
 
@@ -53,39 +54,39 @@ def save_users(list_of_users):
 
     threadlock_xml.acquire()
     
-    try:
+    try: # try accessing xmlData file
         tree = ET.parse('./xmlData.xml')
-    except FileNotFoundError:
+    except FileNotFoundError: # if not found, create new one.
         print("File not found: creating a new file")
         tree = create_xml_file()
-    except ET.ParseError:
+    except ET.ParseError: # if the file is damaged, panic in wizard
         print("\noh noes, parse error\n")
         threadlock_xml.release()
         return False
 
-    root = tree.getroot()
-    usersNode = root.find("users")
+    root = tree.getroot() # get first node
+    usersNode = root.find("users") # get users node
 
-    if usersNode == None:
+    if usersNode == None: # if it doesn't exist create one
         usersNode = ET.Element("users")
         root.append(usersNode)
-    else:
-        usersNode.clear()
+    else: # if it exist, empty it. 
+        usersNode.clear() 
     
-    for node in user_nodes:
+    for node in user_nodes: # add users to it
         usersNode.append(node)
 
-    tree.write('./xmlData.xml')
+    tree.write('./xmlData.xml') # write it down
 
-    threadlock_xml.release()
-    return True
+    threadlock_xml.release() # release lock
+    return True # return true for success.
 
-def load_users():
+def load_users(): # load users to from xml to RAM memory
     global threadlock_xml
-    list_of_users = []
+    list_of_users = [] 
 
-    threadlock_xml.acquire()
-    try:
+    threadlock_xml.acquire() 
+    try: # access to xml file
         tree = ET.parse('./xmlData.xml')
     except FileNotFoundError:
         print("File not found: creating a new file")
@@ -95,14 +96,14 @@ def load_users():
         threadlock_xml.release()
         return []
 
-    root = tree.getroot()
-    usersNode = root.find("users")
+    root = tree.getroot() # get first node
+    usersNode = root.find("users") # get users node
 
-    if usersNode == None:
+    if usersNode == None: # make sure it exist
         usersNode = ET.Element("users")
         root.append(usersNode)
     
-    for a_user in usersNode.iter("user"):
+    for a_user in usersNode.iter("user"): # go through all user nodes and store them to ram 
         a_password = a_user.find("password")
         list_of_users.append(user(a_user.text, a_password.text))
 
@@ -110,11 +111,11 @@ def load_users():
 
     return list_of_users
 
-def write_user_data(username, password): # handles adding user to data base. 
+def write_user_data(username, password): # handles adding a singular user to data base. 
     global threadlock_xml
 
-    userElement = ET.Element("username")
-    userElement.set("password", password)
+    userElement = ET.Element("user") # create user element
+    userElement.set("password", password) 
 
     threadlock_xml.acquire()
     try:
@@ -127,14 +128,14 @@ def write_user_data(username, password): # handles adding user to data base.
         threadlock_xml.release()
         return False
 
-    root = tree.getroot()
+    root = tree.getroot() # get first node
     userNode = root.find("users")
 
-    if userNode == None:
+    if userNode == None: 
         userNode = ET.Element("users")
         root.append(userNode)
     found = False
-    for a_user in userNode.iter():
+    for a_user in userNode.iter("user"): # go through all user nodes to find if it already exists
         if(a_user.text == username):
             found = True
             break
@@ -145,7 +146,7 @@ def write_user_data(username, password): # handles adding user to data base.
     threadlock_xml.release()
     return True
 
-def write_message(sender_name, to, message):
+def write_message(sender_name, to, message): # handles all message writing
     global threadlock_xml
     success = False #return value if operation succeeded
 
@@ -165,12 +166,12 @@ def write_message(sender_name, to, message):
 
     if userNode != None: # makes sure there is users
         receiver = None  
-        for a_user in userNode.iter():
+        for a_user in userNode.iter("user"): # find the receiving wizard  
             if(a_user.text == to):
                 receiver = a_user
                 break
-        if(receiver != None):
-            messages_node = receiver.find("messages")
+        if(receiver != None): # check if it was found
+            messages_node = receiver.find("messages") # go through messages tree to find correct place for the message
             if(messages_node == None):
                 messages_node = ET.Element("messages")
                 receiver.append(messages_node)
@@ -183,9 +184,9 @@ def write_message(sender_name, to, message):
                 category_node.text = sender_name
                 messages_node.append(category_node)
             message_node = ET.Element("message")
-            message_node.text = message
+            message_node.text = message # write the message
             category_node.append(message_node)
-            success = True
+            success = True # mark that operation was success
         else:
             print("receiver error")
     else:
@@ -196,7 +197,7 @@ def write_message(sender_name, to, message):
     threadlock_xml.release()
     return success
 
-def read_messages(username):
+def read_messages(username): # processes all messages user has received and returns them.
     global threadlock_xml
 
     threadlock_xml.acquire()
@@ -229,7 +230,7 @@ def read_messages(username):
     messagesNode = userNode.find("messages")
 
     messages = ""
-    for categoryNode in messagesNode.iter("category"):
+    for categoryNode in messagesNode.iter("category"): # the messages are encoded here to make the message decoder decode them properly
         messages += categoryNode.text + "\n;"
         for message in categoryNode.iter("message"):
             messages += message.text + ";"
@@ -238,7 +239,7 @@ def read_messages(username):
     threadlock_xml.release()
     return messages
 
-def users_of_an_event(eventName):
+def users_of_an_event(eventName): # gets all users from a event and returns them in a list
     global threadlock_xml
 
     threadlock_xml.acquire()
@@ -276,7 +277,7 @@ def users_of_an_event(eventName):
     threadlock_xml.release()
     return listOfUsersInEvent
 
-def all_events():
+def all_events(): # gets all events
     global threadlock_xml
 
     threadlock_xml.acquire()
@@ -304,7 +305,7 @@ def all_events():
     threadlock_xml.release()
     return listOfEvents
 
-def add_event(event_name):
+def add_event(event_name): # add a event 
     global threadlock_xml
 
     event_node = ET.Element("event")
@@ -336,7 +337,7 @@ def add_event(event_name):
     threadlock_xml.release()
     return True
 
-def join_event(username, event_name):
+def join_event(username, event_name): # joins a user to event
     global threadlock_xml
 
     user_node = ET.Element("user")
@@ -379,7 +380,7 @@ def join_event(username, event_name):
     return True
 
 
-def attack_wizard(attacker, defender): # better than snapchat. Here wizards may punch each other to show "dislike", if you get punched enough (here 5 times) your acconut is deleted. 
+def attack_wizard(attacker, defender): # better than snapchat. Here wizards may punch each other to show "dislike", if they get punched enough (here 5 times) their acconut is deleted. 
     global threadlock_xml
 
     threadlock_xml.acquire()
@@ -409,11 +410,10 @@ def attack_wizard(attacker, defender): # better than snapchat. Here wizards may 
         threadlock_xml.release()
         return False
     
-    log_node = user_node.find("log")
+    log_node = user_node.find("log") # writes a punches to log file 
     if(log_node == None):
         log_node = ET.Element("log")
         user_node.append(log_node)
-        print("log not found")
     if(log_node.find(attacker)): # same user can't punch another multiple times
         threadlock_xml.release()
         return False
@@ -447,9 +447,13 @@ def delete_account(account_name): # delete account
         return False
     
     root = tree.getroot() 
-    for a_user in root.iter("user"): # deletes all user references to that user 
+    users_node = root.find("users")
+    if(users_node == None):
+        threadlock_xml.release()
+        return
+    for a_user in users_node.iter("user"): # deletes user 
         if(a_user.text == account_name):
-            root.remove(a_user)
+            users_node.remove(a_user)
     
     tree.write('./xmlData.xml')
     threadlock_xml.release()
@@ -457,19 +461,22 @@ def delete_account(account_name): # delete account
 
 def release_thread_lock(): #admin action if a crash causes threadlock to be hold locked
     global threadlock_xml
-    threadlock_xml.release()
+    try:
+        threadlock_xml.release()
+    except RuntimeError:
+        print("threadlock was already free")
     return True
 
-# server functions
+
 
 # Rest section
 
 
 
-class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler): # class for client connection
     listOfUsers = load_users() #store whole user from xml to memory
     listOfActiveUsers = [] #store only username
-    def userExists(self, name: str, password: str) -> bool:
+    def userExists(self, name: str, password: str) -> bool: # checks if username exist and if given info matches that
         found = False
         nameExist = False
         for a_user in self.listOfUsers:
@@ -485,15 +492,15 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def form_response(self, message0 = "MessageError", message1 = ""): #message 0 is meant for mechanical messages, message 1 is for user. Message 1 is not always needed.
         return bytes(message_coder.encode(message0, message1), 'ascii')
      
-    def handle(self):
+    def handle(self): # main handles of client requests
         
         run = True
-        while run:
+        while run: # main loop
             data = str(self.request.recv(1024), 'ascii')
             if(len(data) == 0): # happens when connection is made, other cases shouldn't hit here.  
                 continue
             parsedData = message_coder.decode(data) # ideally index 0 is username, 1 is password, 2 is action, and rest is action specific.
-            try:
+            try: # tries parcing client request
                 name = parsedData[0]
                 password = parsedData[1]
                 action = parsedData[2]
@@ -503,10 +510,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             except IndexError:
                 print("invalid message arrived,\ndata:", data, "\nparcedData:", parsedData)
                 continue
-            userAuth, nameExists = self.userExists(name, password)
+            userAuth, nameExists = self.userExists(name, password) # checks if username exist and if passwords match
             
                 
-            if(action == "test"): # test from documentation
+            if(action == "test"): # test from documentation, currently not used
                 cur_thread = threading.current_thread()
                 response = self.form_response("ok", "{}: {}".format(cur_thread.name, data).upper())
             
@@ -582,7 +589,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 elif(action == "attack"): # other 0 = who you are going to punch
                     result = attack_wizard(name, other[0])
                     if(result):
-                        if(result == "dead"):
+                        if(result == "dead"): # if user account is deleted from a punch, it is removed from ram
                             self.listOfActiveUsers.remove(other[0])
                             for x, a_user in enumerate(self.listOfUsers):
                                 if(a_user.username == other[0]):
@@ -602,7 +609,25 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer): # something from documentation, needs to be.
     pass
 
-# Rest section
+
+
+# custom thread to return values from here: https://medium.com/@birenmer/threading-the-needle-returning-values-from-python-threads-with-ease-ace21193c148
+
+class CustomThread(threading.Thread): # this makes a thread wrapper that holds values from target function given in to it.
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None):
+        # Initializing the Thread class
+        super().__init__(group, target, name, args, kwargs)
+        self._return = None
+
+    # Overriding the Thread.run function
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self):
+        super().join()
+        return self._return
+
 
 # RPC section
 
@@ -612,30 +637,42 @@ def delete_user(username): #admin action to delete user
     thread.start()
 
 def read_user_messages(username): #admin action to read user
-    thread = threading.Thread(target=read_messages, args=[username])
+    thread = CustomThread(target=read_messages, args=[username])
     thread.start()
+    return(message_coder.encode(thread.join()))
 
 def release_threadlock_admin(): #admin action to release the threadlock
     thread = threading.Thread(target=release_thread_lock, args=[])
     thread.start()
 
-def query_wikipedia(topic): # old codes
-    # https://www.mediawiki.org/wiki/API:Opensearch 
-    S = requests.Session() 
-    URL = "https://en.wikipedia.org/w/api.php"
+def read_secret_wizard_knowlegde(params): # old texts from library of babel
+    # https://libraryofbabel.info/
+    # some code from https://github.com/victor-cortez/Library-of-Babel-Python-API/blob/master/pybel.py 
+    hexagon, wall, shelf, volume = params
+    if(int(wall) > 4): # makes sure the params are in correct range 
+        wall = "4"
+    elif(int(wall) < 1):
+        wall = "1"
+    
+    if(int(shelf) > 5):
+        shelf = "5"
+    elif(int(shelf) < 1):
+        shelf = "1"
 
-    PARAMS = {
-        "action": "opensearch",
-        "namespace": "0",
-        "search": topic,
-        "limit": "9",
-        "format": "json"
-    }
+    if(int(volume) > 32):
+        volume = "32"
+    elif(int(volume) < 1):
+        volume = "1"
+    
+    if int(volume) <= 9:
+        volume = "0" + volume
 
-    R = S.get(url=URL, params=PARAMS)
-    DATA = R.json()
+    form = {"hex":hexagon,"wall":wall,"shelf":shelf,"volume":volume,"page":"1","title":"startofthetext"}
+    url = "https://libraryofbabel.info/download.cgi"
+    text = requests.post(url,data=form) # makes the request to the library of babel.
 
-    return(DATA)
+
+    return(text)
 
 
 
@@ -643,20 +680,19 @@ def query_wikipedia(topic): # old codes
 
 # RPC setup and configurable values
 
-def open_connection():
+def open_connection(): # connection
     port = 8000
     server = SimpleXMLRPCServer(("localhost", port), allow_none=True)
     print("Listening on port " + str(port) + " for RPC requests...")
     return server
 
 
-def register_functions(server):
+def register_functions(server): # RPC functions
     server.register_function(delete_user, "delete_user")
-    server.register_function(read_user_messages, "read_users_messages")
+    server.register_function(read_user_messages, "users_messages")
+    server.register_function(read_secret_wizard_knowlegde, "secret_wizard_knowlegde")
+    server.register_function(release_threadlock_admin, "release_threadlock")
 
-
-
-# RPC section
 
 # main
 
