@@ -535,7 +535,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler): # class for cl
                 else:
                     self.listOfUsers.append(user(name, password))
                     self.listOfActiveUsers.append(name)
-                    save_users(self.listOfUsers)
+                    write_user_data(name, password)
                     response = self.form_response("ok", "U R now connected  to the wizard's counsil: " + name )
             elif(action == "disconnect"): # disconnect
                 for a_user in self.listOfActiveUsers:
