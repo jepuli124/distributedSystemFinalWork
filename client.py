@@ -106,6 +106,8 @@ class client:
         response = self.send_to_server("cur_events")
         print("Current events: ", response[1])
         to = input("Which are you going to join? Name of event/No: ")
+        if(len(to) == 0): 
+            return
         if(to[0].lower() == "n"):
             return
         response = self.send_to_server("join_event", to)
