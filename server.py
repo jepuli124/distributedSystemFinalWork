@@ -418,6 +418,7 @@ def attack_wizard(attacker, defender): # better than snapchat. Here wizards may 
         threadlock_xml.release()
         return False
     attack_node = ET.Element(attacker)
+    attack_node.text = attacker + " punched you"
     log_node.append(attack_node)
 
     if(log_node.__len__() >= 5): # user "dies" -> account is deleted. 
@@ -671,8 +672,7 @@ def read_secret_wizard_knowlegde(params): # old texts from library of babel
     url = "https://libraryofbabel.info/download.cgi"
     text = requests.post(url,data=form) # makes the request to the library of babel.
 
-
-    return(text)
+    return(text.text)
 
 
 
