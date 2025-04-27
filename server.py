@@ -115,7 +115,10 @@ def write_user_data(username, password): # handles adding a singular user to dat
     global threadlock_xml
 
     userElement = ET.Element("user") # create user element
-    userElement.set("password", password) 
+    passwordNode = ET.Element("password") 
+    userElement.text = username
+    passwordNode.text = password
+    userElement.append(passwordNode)
 
     threadlock_xml.acquire()
     try:
@@ -129,19 +132,23 @@ def write_user_data(username, password): # handles adding a singular user to dat
         return False
 
     root = tree.getroot() # get first node
-    userNode = root.find("users")
+    usersNode = root.find("users")
 
-    if userNode == None: 
-        userNode = ET.Element("users")
-        root.append(userNode)
-    found = False
-    for a_user in userNode.iter("user"): # go through all user nodes to find if it already exists
+    if usersNode == None: 
+        usersNode = ET.Element("users")
+        root.append(usersNode)
+    userNode = None
+    for a_user in usersNode.iter("user"): # go through all user nodes to find if it already exists
         if(a_user.text == username):
-            found = True
+            userNode = a_user
             break
-    if(not found): #writes new user only if user doesn't exist (this should never be run when user already exist but is here to ensure that)
-        userNode.append(userElement)
-        tree.write('./xmlData.xml')
+    if(userNode != None): #writes new user only if user doesn't exist (this should never be run when user already exist but is here to ensure that)
+        threadlock_xml.release()
+        return False
+
+    usersNode.append(userElement)
+        
+    tree.write('./xmlData.xml')
 
     threadlock_xml.release()
     return True
